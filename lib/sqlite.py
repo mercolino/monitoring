@@ -107,7 +107,7 @@ class SQLite():
                                                                                       self.tables[table_name]),
                                                                                   num=n)
             self.c.execute(sql)
-
+            return self.c.fetchall()
         except Exception as e:
             raise e
 
@@ -136,6 +136,6 @@ class SQLite():
     def close(self):
         """ Close connection"""
         try:
-            self.c.close()
+            self.conn.close()
         except Exception as e:
             raise e
