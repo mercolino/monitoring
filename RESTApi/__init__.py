@@ -11,9 +11,10 @@ def page_not_found(error):
     return make_response(jsonify({'error': error.description}), 404)
 
 
-@app.route('/api/v1.0/get_last/<type>/<int:n>', methods=['GET'])
-def get_last(type, n=1):
-    if type == 'ping':
+@app.route('/api/v1.0/get_last/<mon_type>', defaults={'n': 1}, methods=['GET'])
+@app.route('/api/v1.0/get_last/<mon_type>/<int:n>', methods=['GET'])
+def get_last(mon_type, n):
+    if mon_type == 'ping':
         g = SQLite(db_name)
         g.create_table('ping_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'dst_ip text',
                                       'rtt real', 'pkt_sent integer', 'pkt_loss integer'))
@@ -27,7 +28,7 @@ def get_last(type, n=1):
                 data[columns[i]] = v
                 i += 1
             result.append(data)
-    elif type == 'tcp':
+    elif mon_type == 'tcp':
         g = SQLite(db_name)
         g.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'url text',
                                   'response_code integer'))
@@ -42,9 +43,10 @@ def get_last(type, n=1):
                 i += 1
             result.append(data)
     else:
-        abort(make_response(jsonify(error="Type %s does not exist, only ping or tcp" % type), 400))
+        abort(make_response(jsonify(error="Type %s does not exist, only ping or tcp" % mon_type), 400))
 
     return jsonify(result)
+
 
 if __name__ == '__main__':
     yaml_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yaml')
