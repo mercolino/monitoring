@@ -1,9 +1,17 @@
 import socket
 import argparse
+import lib.sqlite as db
 import logging
 import sys
 import ssl
+import yaml
+import datetime
 
+LEVEL = {'debug': logging.DEBUG,
+         'info': logging.INFO,
+         'warning': logging.WARNING,
+         'error': logging.ERROR,
+         'critical': logging.CRITICAL}
 
 if __name__ == "__main__":
 
@@ -21,9 +29,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Load the config.yaml file
+    with open('config.yaml', 'r') as f:
+        config = yaml.load(f)
+
+    # Set the logging level
+    try:
+        log_level = LEVEL[config["log_level"]]
+    except:
+        log_level = logging.INFO
+
     # Create and format the logger and the handler for logging
     logger = logging.getLogger('tcp_connect_v4')
-    logger.setLevel(level=logging.INFO)
+    logger.setLevel(level=log_level)
     handler = logging.StreamHandler()
     handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                                           datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -32,6 +50,13 @@ if __name__ == "__main__":
 
     # Turn logger on or off depending on the arguments
     logger.disabled = not args.verbose
+
+    # Set the logging level
+    try:
+        db_name = config["db_name"]
+    except:
+        logger.critical('You have to configure the database name on the config file')
+        sys.exit(1)
 
     timeout = int(args.timeout)
     src_ip = args.source
@@ -59,6 +84,14 @@ if __name__ == "__main__":
             server_socket.connect((dst_ip, port))
     except Exception as e:
         logger.critical(e)
+        logger.info('Creating Database if does not exist')
+        p = db.SQLite(db_name)
+        logger.info('Creating tcp_table if does not exist')
+        p.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'url text',
+                                      'response_code integer'))
+        logger.info('Inserting data in tcp_table')
+        p.insert('tcp_table', (datetime.datetime.utcnow(), 6 if args.ipv6 else 4, dst_ip + ':' + str(port), 0))
+        p.close()
         sys.exit(1)
 
     logger.info("Sending data to retrieve the webpage")
@@ -99,4 +132,13 @@ if __name__ == "__main__":
     logger.info("Closing Socket")
     server_socket.close()
 
-    print data[9:12]
+    print "Response code: %s" % data[9:12]
+
+    logger.info('Creating Database if does not exist')
+    p = db.SQLite(db_name)
+    logger.info('Creating tcp_table if does not exist')
+    p.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'url text',
+                                  'response_code integer'))
+    logger.info('Inserting data in tcp_table')
+    p.insert('tcp_table', (datetime.datetime.utcnow(), 6 if args.ipv6 else 4, dst_ip + ':' + str(port), int(data[9:12])))
+    p.close()

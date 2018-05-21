@@ -1,0 +1,11 @@
+# Configuration File
+
+# General Configuration Variables
+log_level: info
+db_name: monitor.db
+
+# API configuration
+api:
+  host: 0.0.0.0
+  debug: true
+  secret_key: Secret_key

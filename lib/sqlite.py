@@ -133,6 +133,25 @@ class SQLite():
         except Exception as e:
             raise e
 
+    def get_columns_from_table(self, table_name):
+        """ Get columns from table """
+        # Error Checks
+        if not isinstance(table_name, str):
+            raise TypeError("The table name should be a string")
+        if len(table_name) == 0:
+            raise ValueError("The table name can't be empty")
+        for v in table_name:
+            if isinstance(v, str):
+                self.__valid_input(v)
+
+        try:
+            sql = "SELECT * from {tbl}".format(tbl=table_name)
+            self.c.execute(sql)
+            return list(map(lambda x: x[0], self.c.description))
+
+        except Exception as e:
+            raise e
+
     def close(self):
         """ Close connection"""
         try:

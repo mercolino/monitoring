@@ -1,6 +1,7 @@
 import socket
 import os
 from lib.lib import IP, ICMPv4
+import lib.sqlite as db
 import datetime
 import threading
 import struct
@@ -8,6 +9,14 @@ import random
 import argparse
 import logging
 import time
+import yaml
+import sys
+
+LEVEL = {'debug': logging.DEBUG,
+         'info': logging.INFO,
+         'warning': logging.WARNING,
+         'error': logging.ERROR,
+         'critical': logging.CRITICAL}
 
 MOD = 1 << 16
 
@@ -55,9 +64,10 @@ def threaded_sender(sock, id, dst_ip, n, logger):
 
 
 
-def threaded_receiver(sock, timeout, id, n, dst_ip, logger):
+def threaded_receiver(sock, timeout, id, n, dst_ip, logger, db_name):
     i = 0
     rtt_list = []
+    pkt_loss = 0
     time_left = timeout
     if os.name == 'nt':
         logger.info('Windows OS, enabling RCVALL')
@@ -91,6 +101,7 @@ def threaded_receiver(sock, timeout, id, n, dst_ip, logger):
         if time_left < 0:
             print "*** Ping timeout ***"
             i += 1
+            pkt_loss += 1
             time_left = timeout
 
     if os.name =='nt':
@@ -109,6 +120,14 @@ def threaded_receiver(sock, timeout, id, n, dst_ip, logger):
     else:
         print "rtt min/avg/max = %0.2f/%0.2f/%0.2f" % (min(rtt_list), avg, max(rtt_list))
 
+    logger.info('Creating Database if does not exist')
+    p = db.SQLite(db_name)
+    logger.info('Creating ping_table if does not exist')
+    p.create_table('ping_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'dst_ip text',
+                                  'rtt real', 'pkt_sent integer', 'pkt_loss integer'))
+    logger.info('Inserting data in ping_table')
+    p.insert('ping_table', (datetime.datetime.utcnow(), 4, dst_ip, avg, n, pkt_loss))
+    p.close()
 
 
 if __name__ == "__main__":
@@ -127,9 +146,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Load the config.yaml file
+    with open('config.yaml', 'r') as f:
+        config = yaml.load(f)
+
+    # Set the logging level
+    try:
+        log_level = LEVEL[config["log_level"]]
+    except:
+        log_level = logging.INFO
+
     # Create and format the logger and the handler for logging
     logger = logging.getLogger('pingv4')
-    logger.setLevel(level=logging.INFO)
+    logger.setLevel(level=log_level)
     handler = logging.StreamHandler()
     handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                                           datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -138,6 +167,13 @@ if __name__ == "__main__":
 
     # Turn logger on or off depending on the arguments
     logger.disabled = not args.verbose
+
+    # Set the logging level
+    try:
+        db_name = config["db_name"]
+    except:
+        logger.critical('You have to configure the database name on the config file')
+        sys.exit(1)
 
     timeout = int(args.timeout)
     number_of_pings = int(args.number)
@@ -158,7 +194,7 @@ if __name__ == "__main__":
 
     receive_threads = []
     r = threading.Thread(name="receiver_thread", target=threaded_receiver,
-                         args=(server_socket, timeout, id, number_of_pings, dst_ip, logger))
+                         args=(server_socket, timeout, id, number_of_pings, dst_ip, logger, db_name))
     receive_threads.append(r)
     logger.info("Launching Receiver thread")
     r.start()
