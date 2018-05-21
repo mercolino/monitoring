@@ -42,7 +42,7 @@ def get_last(type, n=1):
                 i += 1
             result.append(data)
     else:
-        abort(make_response(jsonify(message="Type %s does not exist, only ping or tcp" % type), 404))
+        abort(make_response(jsonify(error="Type %s does not exist, only ping or tcp" % type), 400))
 
     return jsonify(result)
 
