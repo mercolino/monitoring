@@ -20,6 +20,7 @@ LEVEL = {'debug': logging.DEBUG,
 
 MOD = 1 << 16
 
+
 def ones_comp_add16(num1,num2):
     result = num1 + num2
     return result if result < MOD else (result+1) % MOD
@@ -123,7 +124,7 @@ def threaded_receiver(sock, timeout, id, n, dst_ip, logger, db_name):
     logger.info('Creating Database if does not exist')
     p = db.SQLite(db_name)
     logger.info('Creating ping_table if does not exist')
-    p.create_table('ping_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'dst_ip text',
+    p.create_table('ping_table', ('id integer PRIMARY KEY', 'created_at DATETIME', 'version integer', 'dst_ip text',
                                   'rtt real', 'pkt_sent integer', 'pkt_loss integer'))
     logger.info('Inserting data in ping_table')
     p.insert('ping_table', (datetime.datetime.utcnow(), 4, dst_ip, avg, n, pkt_loss))

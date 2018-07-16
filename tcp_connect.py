@@ -87,7 +87,7 @@ if __name__ == "__main__":
         logger.info('Creating Database if does not exist')
         p = db.SQLite(db_name)
         logger.info('Creating tcp_table if does not exist')
-        p.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'url text',
+        p.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATETIME', 'version integer', 'url text',
                                       'response_code integer'))
         logger.info('Inserting data in tcp_table')
         p.insert('tcp_table', (datetime.datetime.utcnow(), 6 if args.ipv6 else 4, dst_ip + ':' + str(port), 0))
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     logger.info('Creating Database if does not exist')
     p = db.SQLite(db_name)
     logger.info('Creating tcp_table if does not exist')
-    p.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATE', 'version integer', 'url text',
+    p.create_table('tcp_table', ('id integer PRIMARY KEY', 'created_at DATETIME', 'version integer', 'url text',
                                   'response_code integer'))
     logger.info('Inserting data in tcp_table')
     p.insert('tcp_table', (datetime.datetime.utcnow(), 6 if args.ipv6 else 4, dst_ip + ':' + str(port), int(data[9:12])))

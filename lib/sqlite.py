@@ -1,5 +1,6 @@
 import sqlite3
 import re
+import datetime
 
 
 class SQLite():
@@ -90,7 +91,7 @@ class SQLite():
             raise e
 
     def get_last_n(self, table_name, n=1):
-        """ Get the last value on table """
+        """ Get the last n values on table """
         # Error Checks
         if not isinstance(table_name, str):
             raise TypeError("The name of the table on database should be a string")

@@ -1,6 +1,7 @@
 import struct
 from ctypes import *
 import socket
+import platform
 
 
 
@@ -15,8 +16,9 @@ class IP(Structure):
         ("ttl", c_ubyte),
         ("protocol_num", c_ubyte),
         ("sum", c_ushort),
-        ("src", c_ulong),
-        ("dst", c_ulong)
+        # Could be a problem for 32 or 64 bits, original type was c_ulong
+        ("src", c_uint32),
+        ("dst", c_uint32)
     ]
 
     def __new__(self, socket_buffer=None):

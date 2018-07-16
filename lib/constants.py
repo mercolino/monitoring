@@ -1,4 +1,4 @@
-ICMP_TYPE_CODE = \
+ICMPV4_TYPE_CODE = \
 {0:{
     0:"Echo Reply"},
 3:{
@@ -30,7 +30,7 @@ ICMP_TYPE_CODE = \
 9:{
     0:"Router Advertisement"},
 10:{
-    0:"Router Discobery/selection/solicitation"},
+    0:"Router Discovery/selection/solicitation"},
 11:{
     0:"TTL expired in transit",
     1:"Fragment reassembly time exceeded"},
