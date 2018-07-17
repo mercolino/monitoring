@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # Turn logger on or off depending on the arguments
     logger.disabled = not args.verbose
 
-    # Set the logging level
+    # Set the database name
     try:
         db_name = config["db_name"]
     except:
