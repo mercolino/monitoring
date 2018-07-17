@@ -146,20 +146,61 @@ if __name__ == "__main__":
         soa_record = 'Error'
     else:
         soa_record = answer_soa.response.to_text()
-        primary_ns = answer_soa.rrset[0].mname
+        primary_ns = dns.resolver.query(answer_soa.rrset[0].mname, dns.rdatatype.A).rrset[0].to_text()
 
-    # logger.info("Query for A Records")
-    # # Query NS for the A Record
-    # try:
-    #     print primary_ns
-    #     query = dns.message.make_query(args.domain, dns.rdatatype.A)
-    #     answer_a = dns.query.udp(query, primary_ns)
-    # except Exception as e:
-    #     logger.error("There was a problem trying to get the A records of the domain %s" % (args.domain))
-    #     logger.error(e)
-    #     a_record = 'Error'
-    # else:
-    #     print answer_a
+    logger.info("Query for A Records")
+    # Query NS for the A Record
+    try:
+        query = dns.message.make_query(args.domain, dns.rdatatype.A)
+        answer_a = dns.query.udp(query, primary_ns)
+    except Exception as e:
+        logger.error("There was a problem trying to get the A records of the domain %s" % (args.domain))
+        logger.error(e)
+        a_record = 'Error'
+    else:
+        a_record = answer_a.answer[0].items[0].address
+
+    logger.info("Query for AAAA Records")
+    # Query NS for the AAAAA Record
+    try:
+        query = dns.message.make_query(args.domain, dns.rdatatype.AAAA)
+        answer_aaaa = dns.query.udp(query, primary_ns)
+    except Exception as e:
+        logger.error("There was a problem trying to get the AAAA records of the domain %s" % (args.domain))
+        logger.error(e)
+        aaaa_record = 'Error'
+    else:
+        try:
+            aaaa_record = answer_aaaa.answer[0].items[0].address
+        except Exception as e:
+            logger.error("There is not a AAAA record for the domain %s" % (args.domain))
+            logger.error(e)
+            aaaa_record = 'Error'
+
+    logger.info("Get DNSKEY record for domain %s" % args.domain)
+    # Query NS for the DNSKEY Record
+    try:
+        query = dns.message.make_query(args.domain, dns.rdatatype.DNSKEY, want_dnssec=True)
+        answer_dnskey = dns.query.udp(query, primary_ns)
+    except Exception as e:
+        logger.error("There was a problem trying to get the DNSKEY records of the domain %s" % (args.domain))
+        logger.error(e)
+        dnskey_record = 'Error'
+    else:
+        dnskey_record = 'Present'
+        logger.info("The dnskey record is %s" % (answer_dnskey.answer[0]))
+        logger.info("Validating the DNSKEY for domain %s" % args.domain)
+        name = dns.name.from_text(args.domain + '.')
+        # try:
+        #     dns.dnssec.validate(answer_dnskey.answer[0], answer_dnskey.answer[0][1], {name: answer_dnskey.answer[0][0]})
+        # except dns.dnssec.ValidationFailure:
+        #     logger.error(
+        #         "There was a problem trying to validate the DNSKEY records for the domain %s" % (args.domain))
+        #     dnskey_record = 'Present Not Validated'
+        # else:
+        #     logger.info("The DNSKEY was validated for the domain %s" % (args.domain))
+        #     dnskey_record = 'Present And Validated'
+
 
 
     for server in mx_servers_ipv4:
@@ -171,3 +212,7 @@ if __name__ == "__main__":
         print "The domain %s has the %s Nameserver with an ipv4 address of %s" %(args.domain, server[0], server[1])
     for server in ns_servers_ipv6:
         print "The domain %s has the %s Nameserver with an ipv6 address of %s" %(args.domain, server[0], server[1])
+
+    print "The A record for this domain is %s" % a_record
+    print "The AAAA record for this domain is %s" % aaaa_record
+    print "The DNSKEY is %s" % dnskey_record
