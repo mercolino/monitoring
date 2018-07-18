@@ -25,13 +25,13 @@ def get_token():
     d.create_table('tokens_table', ('id integer PRIMARY KEY', 'token TEXT', 'expiration DATETIME'))
 
     # Insert token in table
-    d.insert('tokens_table', (token, datetime.utcnow() + timedelta(minutes=5)))
+    d.insert('tokens_table', (token, datetime.utcnow() + timedelta(minutes=token_timeout)))
 
     # Close the database
     d.close()
 
     # Return JSON response
-    return jsonify({'date': datetime.utcnow(), 'token': token, 'expiration': datetime.utcnow() + timedelta(minutes=5)})
+    return jsonify({'date': datetime.utcnow(), 'token': token, 'expiration': datetime.utcnow() + timedelta(minutes=token_timeout)})
 
 
 @app.route('/api/v1.0/test_token', methods=['GET'])
@@ -121,6 +121,17 @@ def get_last(mon_type, n):
     else:
         abort(make_response(jsonify(error="Type %s does not exist, only ping or tcp" % mon_type), 400))
 
+    # Create table if does not exists
+    d = SQLite(db_name)
+    d.create_table('tokens_table', ('id integer PRIMARY KEY', 'token text', 'expiration DATETIME'))
+
+    # Update the expiration datetime for the token
+    sql = '''UPDATE tokens_table SET expiration = ? WHERE token = ?'''
+    resp = d.query(sql, (datetime.utcnow() + timedelta(minutes=token_timeout), token))
+
+    # Close Database
+    d.close()
+
     return jsonify(result)
 
 
@@ -133,6 +144,9 @@ if __name__ == '__main__':
 
     global db_name
     db_name = os.path.join(os.path.dirname(os.path.dirname(__file__)), config['db_name'])
+
+    global token_timeout
+    token_timeout = config['api']['token_timeout']
 
     app.secret_key = config['api']['secret_key']
     app.run(host=config['api']['host'], debug=config['api']['debug'])

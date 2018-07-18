@@ -7,6 +7,7 @@ import argparse
 import logging
 import yaml
 import sys
+import json
 
 LEVEL = {'debug': logging.DEBUG,
          'info': logging.INFO,
@@ -21,7 +22,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", help="Turn on verbosity on the output", action="store_true", default=False)
     parser.add_argument("-d", dest="domain", help="Specify the domain to check", action="store")
-    parser.add_argument("--dnssec", help="Check for DNSSEC", action="store_true", default = False)
     parser.add_argument("--ns1", help="Specify the first name server to use [Optional]", action="store")
     parser.add_argument("--ns2", help="Specify the second name server to use [Optional]", action="store")
 
@@ -87,9 +87,9 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.error("There was a problem trying to get the A records of %s" %(rdata_mx.exchange))
                 logger.error(e)
-                mx_servers_ipv4.append((rdata_mx.exchange, 'N/A'))
+                mx_servers_ipv4.append((rdata_mx.exchange.to_text(), 'N/A'))
             for rdata in answer:
-                mx_servers_ipv4.append((rdata_mx.exchange, rdata))
+                mx_servers_ipv4.append((rdata_mx.exchange.to_text(), rdata.address))
             # Processing ipv6 addresses
             logger.info("Processing %s ipv6 exchange server" % (rdata_mx.exchange))
             try:
@@ -97,9 +97,9 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.error("There was a problem trying to get the AAAAA records of %s" % (rdata_mx.exchange))
                 logger.error(e)
-                mx_servers_ipv6.append((rdata_mx.exchange, 'N/A'))
+                mx_servers_ipv6.append((rdata_mx.exchange.to_text(), 'N/A'))
             for rdata in answer:
-                mx_servers_ipv6.append((rdata_mx.exchange, rdata))
+                mx_servers_ipv6.append((rdata_mx.exchange.to_text(), rdata.address))
 
     logger.info("Query for NS Servers")
     # Query NS for the NS Records of the Domain
@@ -124,7 +124,7 @@ if __name__ == "__main__":
                 logger.error(e)
                 ns_servers_ipv4.append((rdata_ns.to_text(), 'N/A'))
             for rdata in answer:
-                ns_servers_ipv4.append((rdata_ns.to_text(), rdata))
+                ns_servers_ipv4.append((rdata_ns.to_text(), rdata.address))
             # Processing Ipv6 Addresses
             logger.info("Processing %s ipv6 nameserver" % (rdata_ns.to_text()))
             try:
@@ -134,7 +134,7 @@ if __name__ == "__main__":
                 logger.error(e)
                 ns_servers_ipv6.append((rdata_ns.to_text(), 'N/A'))
             for rdata in answer:
-                ns_servers_ipv6.append((rdata_ns.to_text(), rdata))
+                ns_servers_ipv6.append((rdata_ns.to_text(), rdata.address))
 
     logger.info("Query for SOA Record")
     # Query NS for the SOA Record
@@ -145,7 +145,8 @@ if __name__ == "__main__":
         logger.error(e)
         soa_record = 'Error'
     else:
-        soa_record = answer_soa.response.to_text()
+        soa_record = answer_soa.rrset[0].to_text()
+        logger.info("The soa record is %s" % (soa_record))
         primary_ns = dns.resolver.query(answer_soa.rrset[0].mname, dns.rdatatype.A).rrset[0].to_text()
 
     logger.info("Query for A Records")
@@ -175,7 +176,7 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error("There is not a AAAA record for the domain %s" % (args.domain))
             logger.error(e)
-            aaaa_record = 'Error'
+            aaaa_record = 'No IPv6'
 
     logger.info("Get DNSKEY record for domain %s" % args.domain)
     # Query NS for the DNSKEY Record
@@ -187,32 +188,24 @@ if __name__ == "__main__":
         logger.error(e)
         dnskey_record = 'Error'
     else:
-        dnskey_record = 'Present'
-        logger.info("The dnskey record is %s" % (answer_dnskey.answer[0]))
-        logger.info("Validating the DNSKEY for domain %s" % args.domain)
-        name = dns.name.from_text(args.domain + '.')
-        # try:
-        #     dns.dnssec.validate(answer_dnskey.answer[0], answer_dnskey.answer[0][1], {name: answer_dnskey.answer[0][0]})
-        # except dns.dnssec.ValidationFailure:
-        #     logger.error(
-        #         "There was a problem trying to validate the DNSKEY records for the domain %s" % (args.domain))
-        #     dnskey_record = 'Present Not Validated'
-        # else:
-        #     logger.info("The DNSKEY was validated for the domain %s" % (args.domain))
-        #     dnskey_record = 'Present And Validated'
+        if len(answer_dnskey.answer) != 0:
+            dnskey_record = 'Present'
+            logger.info("The dnskey record is %s" % (answer_dnskey.answer[0]))
+        else:
+            dnskey_record = 'Not Present'
+            logger.info("No DNSKEY record found")
 
-
-
-    for server in mx_servers_ipv4:
-        print "The domain %s has the %s Exchange server with an ipv4 address of %s" %(args.domain, server[0], server[1])
-    for server in mx_servers_ipv6:
-        print "The domain %s has the %s Exchange server with an ipv6 address of %s" %(args.domain, server[0], server[1])
-
-    for server in ns_servers_ipv4:
-        print "The domain %s has the %s Nameserver with an ipv4 address of %s" %(args.domain, server[0], server[1])
-    for server in ns_servers_ipv6:
-        print "The domain %s has the %s Nameserver with an ipv6 address of %s" %(args.domain, server[0], server[1])
-
-    print "The A record for this domain is %s" % a_record
-    print "The AAAA record for this domain is %s" % aaaa_record
-    print "The DNSKEY is %s" % dnskey_record
+    # Create database
+    logger.info('Creating Database if does not exist')
+    p = db.SQLite(db_name)
+    # Create table
+    logger.info('Creating dns_table if does not exist')
+    p.create_table('dns_table', ('id integer PRIMARY KEY', 'created_at DATETIME', 'ipv4_mx_servers text',
+                                 'ipv6_mx_servers text', 'ipv4_ns_servers text', 'ipv6_ns_servers text',
+                                 'soa_record text', 'a_record text', 'aaaa_record text', 'dnskey_record text'))
+    # Insert data in database table
+    logger.info('Inserting data in dns_table')
+    p.insert('dns_table', (datetime.datetime.utcnow(), json.dumps(mx_servers_ipv4), json.dumps(mx_servers_ipv6),
+                           json.dumps(ns_servers_ipv4), json.dumps(ns_servers_ipv6), soa_record, a_record, aaaa_record,
+                           dnskey_record))
+    p.close()
